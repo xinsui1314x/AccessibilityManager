@@ -9,22 +9,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 11
+      # 新版 cmdline-tools 的 sdkmanager 要 JDK 17；先用 17 跑 SDK 工具
+      - name: Set up JDK 17 (for Android SDK tools)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Inspect preinstalled Android SDK
+        run: |
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "SDK=$SDK"
+          ls "$SDK/platforms" || true
+          ls "$SDK/build-tools" || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --version || true
+
+      - name: Accept licenses and ensure SDK 33
+        run: |
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-33" "build-tools;33.0.2"
+
+      # 切回 JDK 11：AGP 7.4.1 / Gradle 7.5 只能跑在 11
+      - name: Set up JDK 11 (for Gradle)
         uses: actions/setup-java@v4
         with:
           java-version: '11'
           distribution: 'temurin'
           cache: gradle
-
-      - name: Set up Android SDK tools
-        uses: android-actions/setup-android@v3
-        with:
-          packages: ''
-
-      - name: Accept licenses and install SDK 33
-        run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-33" "build-tools;33.0.2" "platform-tools"
 
       - name: Build debug APK
         run: |
